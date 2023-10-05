@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package org.ilt.internal.comm;
+
+message Movie {
+    string movieId = 1;
+    string title = 2;
+    string director = 3;
+}
+
+service MovieService {
+    rpc GetMovieInfo (MovieRequest) returns (Movie);
+}
+
+message MovieRequest {
+    string movieId = 1;
+}

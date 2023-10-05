@@ -1,0 +1,75 @@
+version: "3.8"
+services:
+  mongo:
+    image: mongo:6.0.5
+    restart: always
+    ports:
+      - 27017:27017
+
+  #apps
+  user-service:
+    depends_on:
+      - mongo
+      - movie-service
+    image: user-service
+    restart: always
+    ports:
+      - 8080:8080
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      args:
+        SERVICE_FOLDER: user-service
+    environment:
+      - spring.data.mongodb.uri=mongodb://mongo:27017/test
+      - grpc.client.movie-client.address=static://movie-service:9090
+      - grpc.client.movie-client.negotiationType=PLAINTEXT
+      - management.otlp.tracing.endpoint=http://jaeger:4318/v1/traces
+#      - logging.level.io.grpc=trace
+  movie-service:
+    depends_on:
+      - mongo
+    image: movie-service
+    ports:
+      - 8081:8081
+      - 9090:9090
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      args:
+        SERVICE_FOLDER: movie-service
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/test
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
+  # Tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - 4318:4318
+      - 16686:16686
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+#  jaeger:
+#    networks:
+#      - backend
+#    image: jaegertracing/all-in-one:${JAEGER_IMAGE_TAG:-latest}
+#    volumes:
+#      - "./jaeger-ui.json:/etc/jaeger/jaeger-ui.json"
+#    command: --query.ui-config /etc/jaeger/jaeger-ui.json
+#    environment:
+#      - METRICS_STORAGE_TYPE=prometheus
+#      - PROMETHEUS_SERVER_URL=http://prometheus:9090
+#      - PROMETHEUS_QUERY_SUPPORT_SPANMETRICS_CONNECTOR=${PROMETHEUS_QUERY_SUPPORT_SPANMETRICS_CONNECTOR:-true}
+#      - PROMETHEUS_QUERY_NAMESPACE=${PROMETHEUS_QUERY_NAMESPACE:-}
+#      - PROMETHEUS_QUERY_DURATION_UNIT=${PROMETHEUS_QUERY_DURATION_UNIT:-}
+#    ports:
+#      - "16686:16686"
+#  otel_collector:
+#    networks:
+#      - backend
+#    image: otel/opentelemetry-collector-contrib:${OTEL_IMAGE_TAG:-0.80.0}
+#    volumes:
+#      - ${OTEL_CONFIG_SRC:-./otel-collector-config-connector.yml}:/etc/otelcol/otel-collector-config.yml
+#    command: --config /etc/otelcol/otel-collector-config.yml
+#    depends_on:
+#      - jaeger
